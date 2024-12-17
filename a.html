@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cronómetro de Estudio</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f8d9e6;  /* Fondo rosa clarito */
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: #ff66b2;
+            position: relative; /* Para posicionar el botón circular */
+            overflow: hidden; /* Para evitar barras de desplazamiento debido a las bolitas */
+        }
+        .container {
+            background-color: white;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 600px;
+            text-align: center;
+            z-index: 10; /* Asegura que el contenido se vea por encima de las bolitas */
+        }
+        h1 {
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            color: #ff4d80;
+        }
+        .time {
+            font-size: 3em;
+            margin-bottom: 20px;
+            color: #ff1f64;
+        }
+        button {
+            padding: 12px 25px;
+            font-size: 1.5em;
+            cursor: pointer;
+            border: none;
+            background-color: #ff66b2;  /* Fondo sólido sin transparencia */
+            color: white;
+            border-radius: 5px;
+            margin: 5px;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        button:hover {
+            background-color: #ff4d80;  /* Color ligeramente diferente al pasar el mouse */
+            transform: scale(1.1);  /* Se agranda al pasar el ratón */
+        }
+        .kitty {
+            width: 250px;  /* Tamaño ajustado de la imagen */
+            height: auto;
+            margin-top: 20px;
+            border-radius: 10px;
+        }
+        .buttons {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+
+        /* Estilo para el botón circular pequeño */
+        #circleButton {
+            width: 40px;
+            height: 40px;
+            background-color: #ff66b2;
+            border: none;
+            cursor: pointer;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            padding: 0;
+            border-radius: 50%;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+            z-index: 20; /* Asegura que esté encima de las bolitas */
+        }
+
+        #circleButton:hover {
+            transform: scale(1.3);  /* Crece al pasar el ratón */
+        }
+
+        /* Estilo para el área de texto */
+        #textAreaContainer {
+            display: none;
+            position: fixed;
+            top: 50px;
+            left: 10px;
+            width: 300px;
+            height: 200px;
+            background-color: white;
+            border-radius: 10px;
+            border: 2px solid #ff66b2;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            z-index: 30; /* Asegura que el área de texto esté encima de las bolitas */
+        }
+
+        #textAreaContainer textarea {
+            width: 100%;
+            height: 100%;
+            border: none;
+            resize: none;
+            font-size: 16px;
+        }
+
+        .column-container {
+            display: flex;
+            justify-content: space-between;
+            padding-bottom: 10px;
+            margin-bottom: 10px;
+        }
+
+        .column {
+            width: 45%;
+            text-align: center;
+        }
+
+        .column-separator {
+            border-left: 2px solid #ff66b2;
+            height: 30px;
+            margin-top: -5px;  /* Para alinear bien la línea vertical */
+        }
+
+        .horizontal-line {
+            border-bottom: 2px solid #ff66b2;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Estilo para las bolitas que caen */
+        .ball {
+            width: 10px;
+            height: 10px;
+            background-color: #ff80b3;  /* Color rosa ligeramente más fuerte */
+            border-radius: 50%;
+            position: absolute;
+            animation: fall 60s linear infinite;
+        }
+
+        /* Animación para que las bolitas caigan */
+        @keyframes fall {
+            0% {
+                top: -10px;
+                opacity: 1;
+            }
+            100% {
+                top: 100%;
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Cronómetro de Estudio</h1>
+        <div class="time" id="display">00:00:00</div>
+        <div class="buttons">
+            <button onclick="start()">Iniciar</button>
+            <button onclick="reset()">Reiniciar</button>
+        </div>
+        <img src="https://fondosdepantallaymuchomas.wordpress.com/wp-content/uploads/2010/11/may1140.gif" alt="Hello Kitty estudiando" class="kitty">
+    </div>
+
+    <!-- Botón circular pequeño (sin imagen) -->
+    <button id="circleButton" onclick="toggleTextArea()"></button>
+
+    <!-- Área de texto que se mostrará al hacer clic en el botón -->
+    <div id="textAreaContainer">
+        <!-- Estructura con columnas -->
+        <div class="column-container">
+            <div class="column">Fecha</div>
+            <div class="column-separator"></div>
+            <div class="column">Tiempo</div>
+        </div>
+
+        <div class="horizontal-line"></div>
+
+        <textarea id="textArea" placeholder="Escribe aquí lo que quieras..."></textarea>
+    </div>
+
+    <script>
+        let timer;
+        let running = false;
+        let seconds = 0, minutes = 0, hours = 0;
+        let balls = [];  // Para mantener un registro de las bolitas
+        let ballInterval;
+        let isPaused = false;
+
+        // Función para generar bolitas aleatorias
+        function createBall() {
+            let ball = document.createElement("div");
+            ball.classList.add("ball");
+
+            // Posición aleatoria en el eje X
+            let left = Math.random() * window.innerWidth;
+            ball.style.left = left + "px";
+
+            // Posición vertical inicial
+            ball.style.top = "-10px";
+            document.body.appendChild(ball);
+
+            // Guardar la bola en el array de bolas
+            balls.push(ball);
+        }
+
+        // Función para mover las bolitas
+        function moveBalls() {
+            balls.forEach(ball => {
+                let top = parseFloat(ball.style.top);
+                if (top < window.innerHeight) {
+                    ball.style.top = (top + 1) + "px";  // Hacer caer la bola
+                }
+            });
+        }
+
+        // Iniciar el intervalo para las bolitas (cada 20ms mientras el cronómetro está en marcha)
+        function startBalls() {
+            ballInterval = setInterval(() => {
+                if (!isPaused) {
+                    createBall();
+                    moveBalls();
+                }
+            }, 20);
+        }
+
+        // Detener el movimiento de las bolitas
+        function stopBalls() {
+            clearInterval(ballInterval);
+        }
+
+        // Recuperar texto guardado en localStorage
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedText = localStorage.getItem("textContent");
+            if (savedText) {
+                document.getElementById("textArea").value = savedText;
+            }
+        });
+
+        // Guardar texto cada vez que se escribe
+        document.getElementById("textArea").addEventListener("input", () => {
+            const text = document.getElementById("textArea").value;
+            localStorage.setItem("textContent", text);
+        });
+
+        function start() {
+            if (running) {
+                clearInterval(timer);
+                stopBalls();  // Detener bolitas al pausar
+                running = false;
+                isPaused = true;  // Cambiar estado a pausado
+                document.querySelector('button:nth-of-type(1)').textContent = "Iniciar";
+            } else {
+                timer = setInterval(updateTime, 1000);
+                startBalls();  // Empezar con las bolitas
+                running = true;
+                isPaused = false;  // Cambiar estado a activo
+                document.querySelector('button:nth-of-type(1)').textContent = "Pausar";
+            }
+        }
+
+        function updateTime() {
+            seconds++;
+            if (seconds >= 60) {
+                seconds = 0;
+                minutes++;
+                if (minutes >= 60) {
+                    minutes = 0;
+                    hours++;
+                }
+            }
+            updateDisplay();
+        }
+
+        function updateDisplay() {
+            let displaySeconds = seconds < 10 ? '0' + seconds : seconds;
+            let displayMinutes = minutes < 10 ? '0' + minutes : minutes;
+            let displayHours = hours < 10 ? '0' + hours : hours;
+
+            document.getElementById("display").textContent = `${displayHours}:${displayMinutes}:${displaySeconds}`;
+        }
+
+        function reset() {
+            clearInterval(timer);
+            stopBalls();
+            running = false;
+            isPaused = false;
+            seconds = 0;
+            minutes = 0;
+            hours = 0;
+            updateDisplay();
+            document.querySelector('button:nth-of-type(1)').textContent = "Iniciar";
+        }
+
+        function toggleTextArea() {
+            const textAreaContainer = document.getElementById("textAreaContainer");
+            textAreaContainer.style.display = textAreaContainer.style.display === "block" ? "none" : "block";
+        }
+    </script>
+
+</body>
+</html>
